@@ -192,8 +192,21 @@ jobs:
             exit $LASTEXITCODE
           }
 
-          $loginOut = ($env:GHCR_TOKEN | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>&1) | Out-String
-          $loginCode = $LASTEXITCODE
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = (Get-Command docker).Source
+          $psi.Arguments = "login ghcr.io -u `"${{ github.actor }}`" --password-stdin"
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.RedirectStandardError = $true
+          $psi.UseShellExecute = $false
+          $proc = [System.Diagnostics.Process]::Start($psi)
+          $proc.StandardInput.Write($env:GHCR_TOKEN)
+          $proc.StandardInput.Close()
+          $stdout = $proc.StandardOutput.ReadToEnd()
+          $stderr = $proc.StandardError.ReadToEnd()
+          $proc.WaitForExit()
+          $loginCode = $proc.ExitCode
+          $loginOut = "$stdout`n$stderr".Trim()
           if ($loginCode -ne 0) {
             [System.IO.File]::WriteAllText($diagFile, "docker login failed ($loginCode): $loginOut")
             Write-Output $loginOut
