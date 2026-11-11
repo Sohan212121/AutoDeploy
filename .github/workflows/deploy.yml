@@ -1,0 +1,157 @@
+name: "AutoDeploy CI/CD"
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  APP_VERSION: "1.0.0"
+
+concurrency:
+  group: "autodeploy-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: "Run Automated Test Suite"
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check out the repository source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python 3.13 environment with dependency caching
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      # Step 3: Install project dependencies pinned in requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Run pytest test suite in verbose mode
+      - name: Run unit and integration tests
+        run: pytest -v
+
+  build-and-push:
+    name: "Build Container & Push to GHCR"
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # Step 1: Check out the repository source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Compute lowercase GHCR image name and ISO UTC build timestamp
+      - name: Configure environment variables for GHCR image and timestamp
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+
+      # Step 3: Set up Docker Buildx for multi-platform builds and layer caching
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 4: Build container image locally for verification and smoke testing
+      - name: Build image for local smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: autodeploy:smoke
+          build-args: |
+            APP_VERSION=${{ env.APP_VERSION }}
+            GIT_COMMIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Step 5: Launch container and verify /health and /version endpoints
+      - name: Run container smoke test
+        run: |
+          docker run -d --name smoke -p 8000:8000 autodeploy:smoke
+
+          echo "Polling container health endpoint..."
+          HEALTHY=0
+          for i in $(seq 1 30); do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "Smoke test passed on attempt $i (HTTP 200)"
+              HEALTHY=1
+              break
+            fi
+            echo "Attempt $i: HTTP status $HTTP_STATUS, sleeping 2s..."
+            sleep 2
+          done
+
+          if [ "$HEALTHY" -ne 1 ]; then
+            echo "Error: Smoke test timed out waiting for /health (HTTP 200)!"
+            echo "=== Smoke Container Logs ==="
+            docker logs smoke
+            exit 1
+          fi
+
+          echo "Verifying /version returns commit SHA..."
+          VERSION_RESP=$(curl -s http://localhost:8000/version)
+          echo "Response from /version: $VERSION_RESP"
+          if ! echo "$VERSION_RESP" | grep -q "${{ github.sha }}"; then
+            echo "Error: /version response does not contain commit SHA '${{ github.sha }}'"
+            echo "=== Smoke Container Logs ==="
+            docker logs smoke
+            exit 1
+          fi
+          echo "Smoke test validated successfully!"
+
+      # Step 6: Clean up the smoke test container whether tests passed or failed
+      - name: Clean up smoke container
+        if: always()
+        run: docker rm -f smoke || true
+
+      # Step 7: Authenticate Docker against GitHub Container Registry (GHCR)
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 8: Build and push verified production image to GHCR reusing cache
+      - name: Build and push production image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          build-args: |
+            APP_VERSION=${{ env.APP_VERSION }}
+            GIT_COMMIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Step 9: Publish step summary to GitHub Actions execution view
+      - name: Publish deployment summary
+        run: |
+          echo "### AutoDeploy Build & Push Summary 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Application Version:** \`${{ env.APP_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Published Image (Latest):** \`${{ env.IMAGE }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Published Image (SHA):** \`${{ env.IMAGE }}:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Time (UTC):** \`${{ env.BUILD_TIME }}\`" >> $GITHUB_STEP_SUMMARY
+

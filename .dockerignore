@@ -1,0 +1,36 @@
+# Virtual environments
+venv/
+.venv/
+
+# Python bytecode and cache
+__pycache__/
+*.pyc
+
+# Pytest and testing artifacts
+.pytest_cache/
+tests/
+
+# Git and GitHub metadata
+.git/
+.github/
+.gitignore
+
+# Environment files and credentials
+.env
+.env.*
+*.pem
+*.key
+
+# Application runtime deployment history
+deployment_history.json
+
+# Documentation and project infrastructure files
+README.md
+docker-compose.yml
+Dockerfile
+deployment/
+
+# IDE and editor configurations
+.vscode/
+.idea/
+

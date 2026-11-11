@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ name }} - Deployment Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-container">
+        <header class="header">
+            <div class="brand">
+                <span class="brand-badge">DevOps CI/CD</span>
+                <h1 class="brand-title">{{ name }}</h1>
+            </div>
+            <p class="brand-tagline">
+                Automated continuous integration and zero-downtime deployment platform for containerized cloud workloads.
+            </p>
+        </header>
+
+        <main class="main-content">
+            <!-- Deployment Metadata Card -->
+            <section class="card metadata-card">
+                <div class="card-header">
+                    <h2 class="card-title">System &amp; Deployment Metadata</h2>
+                    <span class="env-pill env-{{ environment|lower }}">{{ environment }}</span>
+                </div>
+
+                <div class="metadata-grid">
+                    <div class="metadata-item">
+                        <span class="meta-label">Application</span>
+                        <span class="meta-value font-semibold">{{ name }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">Version</span>
+                        <span class="meta-value font-mono">{{ version }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">Environment</span>
+                        <span class="meta-value font-capitalize">{{ environment }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">Commit SHA</span>
+                        <span class="meta-value font-mono">
+                            <span class="short-sha" title="{{ commit_sha }}">{{ short_commit_sha }}</span>
+                            <span class="full-sha">({{ commit_sha }})</span>
+                        </span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">Build Time</span>
+                        <span class="meta-value font-mono">{{ build_time }}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="meta-label">Last Deployment Status</span>
+                        <span class="meta-value">
+                            <span class="status-pill status-{{ deployment_status|lower|replace(' ', '-') }}">
+                                {{ deployment_status }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="metadata-item full-width">
+                        <span class="meta-label">Last Deployment Timestamp</span>
+                        <span class="meta-value font-mono">{{ deployment_timestamp }}</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6-Step Automated Deployment Flow -->
+            <section class="card flow-card">
+                <div class="card-header">
+                    <h2 class="card-title">Automated Deployment Flow</h2>
+                    <span class="step-count">6-Step Pipeline</span>
+                </div>
+                <p class="flow-description">
+                    Every commit triggers an automated pipeline designed for reliability, fast feedback, and zero downtime.
+                </p>
+
+                <ol class="flow-steps">
+                    <li class="flow-step">
+                        <div class="step-badge">1</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Push</h3>
+                            <p class="step-text">
+                                Developer commits code and pushes branch to GitHub, triggering webhook events.
+                            </p>
+                        </div>
+                    </li>
+                    <li class="flow-step">
+                        <div class="step-badge">2</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Test</h3>
+                            <p class="step-text">
+                                CI runner launches isolated test runner, executing automated pytest suites and lint checks.
+                            </p>
+                        </div>
+                    </li>
+                    <li class="flow-step">
+                        <div class="step-badge">3</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Build Image</h3>
+                            <p class="step-text">
+                                Multi-stage Docker container image is built, embedding immutable commit metadata and tags.
+                            </p>
+                        </div>
+                    </li>
+                    <li class="flow-step">
+                        <div class="step-badge">4</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Push to Registry</h3>
+                            <p class="step-text">
+                                Validated production container image is signed and uploaded to the remote container registry.
+                            </p>
+                        </div>
+                    </li>
+                    <li class="flow-step">
+                        <div class="step-badge">5</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Deploy to EC2</h3>
+                            <p class="step-text">
+                                EC2 production target pulls the verified image and initiates zero-downtime container transition.
+                            </p>
+                        </div>
+                    </li>
+                    <li class="flow-step">
+                        <div class="step-badge">6</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Health Check</h3>
+                            <p class="step-text">
+                                Automated probes verify the <code>/health</code> and <code>/version</code> endpoints before marking rollout complete.
+                            </p>
+                        </div>
+                    </li>
+                </ol>
+            </section>
+
+            <!-- API Endpoints Summary -->
+            <section class="card endpoints-card">
+                <div class="card-header">
+                    <h2 class="card-title">Available Service Endpoints</h2>
+                </div>
+                <div class="endpoints-list">
+                    <div class="endpoint-item">
+                        <span class="method-tag method-get">GET</span>
+                        <a href="/" class="endpoint-path">/</a>
+                        <span class="endpoint-desc">Web dashboard displaying system metadata &amp; deployment status</span>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method-tag method-get">GET</span>
+                        <a href="/health" class="endpoint-path">/health</a>
+                        <span class="endpoint-desc">Liveness &amp; readiness check returning JSON status and version</span>
+                    </div>
+                    <div class="endpoint-item">
+                        <span class="method-tag method-get">GET</span>
+                        <a href="/version" class="endpoint-path">/version</a>
+                        <span class="endpoint-desc">Machine-readable JSON metadata with commit SHA and build time</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2026 {{ name }} - Continuous Delivery Infrastructure</p>
+        </footer>
+    </div>
+</body>
+</html>
+
