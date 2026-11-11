@@ -155,3 +155,62 @@ jobs:
           echo "- **Published Image (SHA):** \`${{ env.IMAGE }}:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Build Time (UTC):** \`${{ env.BUILD_TIME }}\`" >> $GITHUB_STEP_SUMMARY
 
+  deploy:
+    name: "Deploy to Local Self-Hosted Runner"
+    needs: build-and-push
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: "autodeploy-deploy"
+      cancel-in-progress: false
+    steps:
+      # Step 1: Check out repository to access deployment/deploy.ps1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Log in to GitHub Container Registry via stdin (no secret echoed)
+      - name: Log in to GHCR
+        shell: powershell
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+            $dockerBin = "C:\Users\sohan\AppData\Local\Programs\DockerDesktop\resources\bin"
+            if (Test-Path $dockerBin) { $env:PATH += ";$dockerBin" }
+          }
+          $env:GHCR_TOKEN | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Step 3: Deploy container with verification and automatic rollback on failure
+      - name: Run local deployment script
+        shell: powershell
+        env:
+          SIMULATE_FAILURE: ${{ contains(github.event.head_commit.message, '[simulate-failure]') && 'true' || 'false' }}
+        run: |
+          $repoLower = "${{ github.repository }}".ToLower()
+          $imageName = "ghcr.io/$repoLower"
+          & .\deployment\deploy.ps1 -ImageName $imageName -Tag "${{ github.sha }}"
+          exit $LASTEXITCODE
+
+      # Step 4: Print last 20 history entries and write summary regardless of deploy outcome
+      - name: Print deployment history and summary
+        if: always()
+        shell: powershell
+        run: |
+          $historyPath = Join-Path $env:USERPROFILE "autodeploy-data\deployment_history.json"
+          if (Test-Path $historyPath) {
+            $entries = @(Get-Content $historyPath -Raw | ConvertFrom-Json)
+            $last20 = @($entries | Select-Object -Last 20)
+            Write-Output "=== Last $($last20.Count) Deployment History Entries ==="
+            ConvertTo-Json -InputObject $last20 -Depth 5 | Write-Output
+          } else {
+            Write-Output "No deployment history file found at $historyPath"
+          }
+
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Local Self-Hosted Deployment Summary" -Encoding UTF8
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Commit SHA:** ``${{ github.sha }}``" -Encoding UTF8
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Job Status:** ``${{ job.status }}``" -Encoding UTF8
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **History File:** ``$historyPath``" -Encoding UTF8
+
