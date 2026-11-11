@@ -72,7 +72,7 @@
                     <span class="step-count">6-Step Pipeline</span>
                 </div>
                 <p class="flow-description">
-                    Every commit triggers an automated pipeline designed for reliability, fast feedback, and zero downtime.
+                    Every commit triggers an automated pipeline designed for reliability, fast feedback, and safe rollback if a release fails.
                 </p>
 
                 <ol class="flow-steps">
@@ -115,9 +115,9 @@
                     <li class="flow-step">
                         <div class="step-badge">5</div>
                         <div class="step-content">
-                            <h3 class="step-title">Deploy to EC2</h3>
+                            <h3 class="step-title">Deploy to Local Host</h3>
                             <p class="step-text">
-                                EC2 production target pulls the verified image and initiates zero-downtime container transition.
+                                A self-hosted GitHub Actions runner on the developer's Windows PC pulls the verified image and replaces the container in Docker Desktop, with a short gap while the container restarts.
                             </p>
                         </div>
                     </li>
