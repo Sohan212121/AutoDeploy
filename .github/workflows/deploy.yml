@@ -38,9 +38,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Step 4: Run pytest test suite in verbose mode
+      # Step 4: Run pytest test suite in verbose mode (unset workflow APP_VERSION so default fallback tests cleanly)
       - name: Run unit and integration tests
-        run: pytest -v
+        run: env -u APP_VERSION pytest -v
 
   build-and-push:
     name: "Build Container & Push to GHCR"
