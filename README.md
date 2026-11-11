@@ -317,11 +317,25 @@ powershell -NoProfile -Command "`$e=$null; [System.Management.Automation.Languag
 
 ## Screenshots
 
-> _Placeholder section — capture and place screenshots under `docs/screenshots/` if needed for presentation._
+1. **GitHub Actions CI/CD Pipeline (`deploy.yml`)** — All three jobs (`Run Automated Test Suite`, `Build Container & Push to GHCR`, and `Deploy to Local Self-Hosted Runner`) passing:
 
-- `[Screenshot Placeholder 1]`: Web Portal (`http://localhost:8000/`) displaying live version `1.1.0`, short/full commit SHA, and `"success"` status badge.
-- `[Screenshot Placeholder 2]`: GitHub Actions workflow graph showing all 3 jobs (`Run Automated Test Suite`, `Build Container & Push to GHCR`, `Deploy to Local Self-Hosted Runner`) passing.
-- `[Screenshot Placeholder 3]`: GitHub Actions run showing simulated rollback (`test` + `build-and-push` green, `deploy` failed with rollback logs and `deployment_history.json` entries).
+   ![GitHub Actions Pipeline](docs/screenshots/Screenshot%202026-11-11%20184345.png)
+
+2. **AutoDeploy Web Portal (`http://localhost:8000/`)** — Displaying live application version (`1.1.0`), short/full commit SHA, build timestamp, and `"success"` deployment status:
+
+   ![AutoDeploy Web Portal](docs/screenshots/Screenshot%202026-11-11%20190757.png)
+
+3. **Docker Desktop Containers View** — Showing the live `autodeploy-app` container running on port `8000:8000`:
+
+   ![Docker Desktop Container Running](docs/screenshots/Screenshot%202026-11-11%20184518.png)
+
+4. **Simulated Rollback Run (`[simulate-failure]`)** — CI tests and container build pass while `deploy` fails health verification and triggers automatic rollback:
+
+   ![Simulated Failure Rollback Pipeline](docs/screenshots/Screenshot%202026-11-11%20215052.png)
+
+5. **Web Portal After Automatic Rollback** — Application stays up serving the previous verified release (`ab4c29c`) while reporting the latest failed rollout status:
+
+   ![AutoDeploy Web Portal After Rollback](docs/screenshots/Screenshot%202026-11-11%20215133.png)
 
 ---
 

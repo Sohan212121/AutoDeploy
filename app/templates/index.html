@@ -81,7 +81,7 @@
                         <div class="step-content">
                             <h3 class="step-title">Push</h3>
                             <p class="step-text">
-                                Developer commits code and pushes branch to GitHub, triggering webhook events.
+                                Developer commits code and pushes to the <code>main</code> branch on GitHub, triggering the workflow.
                             </p>
                         </div>
                     </li>
@@ -90,7 +90,7 @@
                         <div class="step-content">
                             <h3 class="step-title">Test</h3>
                             <p class="step-text">
-                                CI runner launches isolated test runner, executing automated pytest suites and lint checks.
+                                CI launches an isolated <code>ubuntu-latest</code> runner and executes only the automated <code>pytest</code> test suite.
                             </p>
                         </div>
                     </li>
@@ -99,7 +99,7 @@
                         <div class="step-content">
                             <h3 class="step-title">Build Image</h3>
                             <p class="step-text">
-                                Multi-stage Docker container image is built, embedding immutable commit metadata and tags.
+                                Builds a <code>python:3.13-slim</code> Docker image as non-root <code>appuser</code>, embedding commit SHA, version, and build time.
                             </p>
                         </div>
                     </li>
@@ -108,7 +108,7 @@
                         <div class="step-content">
                             <h3 class="step-title">Push to Registry</h3>
                             <p class="step-text">
-                                Validated production container image is signed and uploaded to the remote container registry.
+                                Smoke-tests <code>/health</code> and <code>/version</code> locally, then pushes <code>:latest</code> and commit-SHA tags to GHCR.
                             </p>
                         </div>
                     </li>
@@ -126,7 +126,7 @@
                         <div class="step-content">
                             <h3 class="step-title">Health Check</h3>
                             <p class="step-text">
-                                Automated probes verify the <code>/health</code> and <code>/version</code> endpoints before marking rollout complete.
+                                Automated probes verify Docker health, <code>/health</code>, and <code>/version</code> commit SHA, rolling back automatically on failure.
                             </p>
                         </div>
                     </li>
