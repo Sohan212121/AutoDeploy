@@ -161,7 +161,7 @@ jobs:
     runs-on: self-hosted
     permissions:
       contents: read
-      packages: read
+      packages: write
     concurrency:
       group: "autodeploy-deploy"
       cancel-in-progress: false
