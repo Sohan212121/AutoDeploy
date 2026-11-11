@@ -161,7 +161,7 @@ jobs:
     runs-on: self-hosted
     permissions:
       contents: read
-      packages: write
+      packages: read
     concurrency:
       group: "autodeploy-deploy"
       cancel-in-progress: false
@@ -192,6 +192,33 @@ jobs:
             exit $LASTEXITCODE
           }
 
+          $diagMsg = @()
+          $diagMsg += "Token length: $($env:GHCR_TOKEN.Length)"
+          $pair = "${{ github.actor }}:$($env:GHCR_TOKEN.Trim())"
+          $b64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+          try {
+            $tokResp = Invoke-WebRequest -Uri "https://ghcr.io/token?account=${{ github.actor }}&client_id=docker&offline_token=true&service=ghcr.io" -Headers @{ Authorization = "Basic $b64" } -UseBasicParsing
+            $diagMsg += "Direct /token (offline): HTTP $($tokResp.StatusCode)"
+          } catch {
+            $errBody = ""
+            if ($_.Exception.Response) {
+              $sr = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+              $errBody = $sr.ReadToEnd()
+            }
+            $diagMsg += "Direct /token (offline) failed: $($_.Exception.Message) | $errBody"
+          }
+          try {
+            $tokResp2 = Invoke-WebRequest -Uri "https://ghcr.io/token?scope=repository:sohan212121/autodeploy:pull&service=ghcr.io" -Headers @{ Authorization = "Basic $b64" } -UseBasicParsing
+            $diagMsg += "Direct /token (pull scope): HTTP $($tokResp2.StatusCode)"
+          } catch {
+            $errBody2 = ""
+            if ($_.Exception.Response) {
+              $sr2 = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+              $errBody2 = $sr2.ReadToEnd()
+            }
+            $diagMsg += "Direct /token (pull scope) failed: $($_.Exception.Message) | $errBody2"
+          }
+
           docker logout ghcr.io 2>$null | Out-Null
           $psi = New-Object System.Diagnostics.ProcessStartInfo
           $psi.FileName = (Get-Command docker).Source
@@ -211,7 +238,8 @@ jobs:
           $loginCode = $proc.ExitCode
           $loginOut = "$stdout`n$stderr".Trim()
           if ($loginCode -ne 0) {
-            [System.IO.File]::WriteAllText($diagFile, "docker login failed ($loginCode): $loginOut")
+            $diagMsg += "docker login failed ($loginCode): $loginOut"
+            [System.IO.File]::WriteAllText($diagFile, ($diagMsg -join "`n"))
             Write-Output $loginOut
             exit $loginCode
           }
