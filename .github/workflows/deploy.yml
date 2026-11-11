@@ -176,12 +176,31 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $ErrorActionPreference = "Continue"
           if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
             $dockerBin = "C:\Users\sohan\AppData\Local\Programs\DockerDesktop\resources\bin"
             if (Test-Path $dockerBin) { $env:PATH += ";$dockerBin" }
           }
-          $env:GHCR_TOKEN | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $dataDir = Join-Path $env:USERPROFILE "autodeploy-data"
+          if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir -Force | Out-Null }
+          $diagFile = Join-Path $dataDir "login_diag.log"
+
+          $infoOut = docker info --format "{{.ServerVersion}}" 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0) {
+            [System.IO.File]::WriteAllText($diagFile, "docker info failed ($LASTEXITCODE): $infoOut")
+            Write-Output "docker info failed: $infoOut"
+            exit $LASTEXITCODE
+          }
+
+          $loginOut = ($env:GHCR_TOKEN | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>&1) | Out-String
+          $loginCode = $LASTEXITCODE
+          if ($loginCode -ne 0) {
+            [System.IO.File]::WriteAllText($diagFile, "docker login failed ($loginCode): $loginOut")
+            Write-Output $loginOut
+            exit $loginCode
+          }
+          if (Test-Path $diagFile) { Remove-Item $diagFile -Force }
+          Write-Output "GHCR login succeeded."
 
       # Step 3: Deploy container with verification and automatic rollback on failure
       - name: Run local deployment script
