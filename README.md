@@ -341,3 +341,4 @@ powershell -NoProfile -Command "`$e=$null; [System.Management.Automation.Languag
 - **Deployment History Web Dashboard**: Expand the Flask UI to render the full history table (`success`, `rolled_back`, `failed`) with filtering and error details.
 - **Telegram / Slack Notifications**: Send real-time alerts with commit SHA, environment, and rollback outcomes from `deploy.ps1` or GitHub Actions.
 - **Zero-Downtime Blue-Green Switching**: Run green and blue containers on alternating ports behind Nginx/health checks and switch upstream traffic only after passing verification.
+

@@ -266,3 +266,4 @@ PowerShell 5.1's default UTF-8 encoding prepends a 3-byte Byte Order Mark (BOM, 
 
 **20. What happens if `deployment_history.json` is missing, empty, or corrupted?**  
 `load_deployment_status()` in `app/app.py` checks file existence, handles empty content, wraps `json.loads()` in a `try/except`, and falls back safely to `"No deployment history yet"` instead of crashing the `/` route.
+
