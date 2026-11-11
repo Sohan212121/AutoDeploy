@@ -161,7 +161,7 @@ jobs:
     runs-on: self-hosted
     permissions:
       contents: read
-      packages: write
+      packages: read
     concurrency:
       group: "autodeploy-deploy"
       cancel-in-progress: false
@@ -192,6 +192,7 @@ jobs:
             exit $LASTEXITCODE
           }
 
+          docker logout ghcr.io 2>$null | Out-Null
           $psi = New-Object System.Diagnostics.ProcessStartInfo
           $psi.FileName = (Get-Command docker).Source
           $psi.Arguments = "login ghcr.io -u `"${{ github.actor }}`" --password-stdin"
@@ -200,7 +201,9 @@ jobs:
           $psi.RedirectStandardError = $true
           $psi.UseShellExecute = $false
           $proc = [System.Diagnostics.Process]::Start($psi)
-          $proc.StandardInput.Write($env:GHCR_TOKEN)
+          $tokenBytes = [System.Text.Encoding]::UTF8.GetBytes($env:GHCR_TOKEN.Trim())
+          $proc.StandardInput.BaseStream.Write($tokenBytes, 0, $tokenBytes.Length)
+          $proc.StandardInput.BaseStream.Flush()
           $proc.StandardInput.Close()
           $stdout = $proc.StandardOutput.ReadToEnd()
           $stderr = $proc.StandardError.ReadToEnd()
