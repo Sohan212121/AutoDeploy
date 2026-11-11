@@ -161,7 +161,6 @@ jobs:
     runs-on: self-hosted
     permissions:
       contents: read
-      packages: read
     concurrency:
       group: "autodeploy-deploy"
       cancel-in-progress: false
@@ -170,47 +169,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Log in to GitHub Container Registry via stdin (no secret echoed)
-      - name: Log in to GHCR
-        shell: powershell
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $ErrorActionPreference = "Continue"
-          if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-            $dockerBin = "C:\Users\sohan\AppData\Local\Programs\DockerDesktop\resources\bin"
-            if (Test-Path $dockerBin) { $env:PATH += ";$dockerBin" }
-          }
-
-          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-          $origInputEnc = [Console]::InputEncoding
-          [Console]::InputEncoding = $utf8NoBom
-          try {
-            $psi = New-Object System.Diagnostics.ProcessStartInfo
-            $psi.FileName = (Get-Command docker -ErrorAction Stop).Source
-            $psi.Arguments = "login ghcr.io -u `"${{ github.actor }}`" --password-stdin"
-            $psi.RedirectStandardInput = $true
-            $psi.RedirectStandardOutput = $true
-            $psi.RedirectStandardError = $true
-            $psi.UseShellExecute = $false
-            $proc = [System.Diagnostics.Process]::Start($psi)
-            $tokenBytes = $utf8NoBom.GetBytes($env:GHCR_TOKEN.Trim())
-            $proc.StandardInput.BaseStream.Write($tokenBytes, 0, $tokenBytes.Length)
-            $proc.StandardInput.BaseStream.Flush()
-            $proc.StandardInput.Close()
-            $stdout = $proc.StandardOutput.ReadToEnd()
-            $stderr = $proc.StandardError.ReadToEnd()
-            $proc.WaitForExit()
-            if ($proc.ExitCode -ne 0) {
-              Write-Output "$stdout`n$stderr".Trim()
-              exit $proc.ExitCode
-            }
-            Write-Output $stdout.Trim()
-          } finally {
-            [Console]::InputEncoding = $origInputEnc
-          }
-
-      # Step 3: Deploy container with verification and automatic rollback on failure
+      # Step 2: Deploy container with verification and automatic rollback on failure
       - name: Run local deployment script
         shell: powershell
         env:
@@ -221,7 +180,7 @@ jobs:
           & .\deployment\deploy.ps1 -ImageName $imageName -Tag "${{ github.sha }}"
           exit $LASTEXITCODE
 
-      # Step 4: Print last 20 history entries and write summary regardless of deploy outcome
+      # Step 3: Print last 20 history entries and write summary regardless of deploy outcome
       - name: Print deployment history and summary
         if: always()
         shell: powershell
