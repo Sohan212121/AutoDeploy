@@ -181,70 +181,34 @@ jobs:
             $dockerBin = "C:\Users\sohan\AppData\Local\Programs\DockerDesktop\resources\bin"
             if (Test-Path $dockerBin) { $env:PATH += ";$dockerBin" }
           }
-          $dataDir = Join-Path $env:USERPROFILE "autodeploy-data"
-          if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir -Force | Out-Null }
-          $diagFile = Join-Path $dataDir "login_diag.log"
 
-          $infoOut = docker info --format "{{.ServerVersion}}" 2>&1 | Out-String
-          if ($LASTEXITCODE -ne 0) {
-            [System.IO.File]::WriteAllText($diagFile, "docker info failed ($LASTEXITCODE): $infoOut")
-            Write-Output "docker info failed: $infoOut"
-            exit $LASTEXITCODE
-          }
-
-          $diagMsg = @()
-          $diagMsg += "Token length: $($env:GHCR_TOKEN.Length)"
-          $pair = "${{ github.actor }}:$($env:GHCR_TOKEN.Trim())"
-          $b64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          $origInputEnc = [Console]::InputEncoding
+          [Console]::InputEncoding = $utf8NoBom
           try {
-            $tokResp = Invoke-WebRequest -Uri "https://ghcr.io/token?account=${{ github.actor }}&client_id=docker&offline_token=true&service=ghcr.io" -Headers @{ Authorization = "Basic $b64" } -UseBasicParsing
-            $diagMsg += "Direct /token (offline): HTTP $($tokResp.StatusCode)"
-          } catch {
-            $errBody = ""
-            if ($_.Exception.Response) {
-              $sr = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-              $errBody = $sr.ReadToEnd()
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = (Get-Command docker -ErrorAction Stop).Source
+            $psi.Arguments = "login ghcr.io -u `"${{ github.actor }}`" --password-stdin"
+            $psi.RedirectStandardInput = $true
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            $psi.UseShellExecute = $false
+            $proc = [System.Diagnostics.Process]::Start($psi)
+            $tokenBytes = $utf8NoBom.GetBytes($env:GHCR_TOKEN.Trim())
+            $proc.StandardInput.BaseStream.Write($tokenBytes, 0, $tokenBytes.Length)
+            $proc.StandardInput.BaseStream.Flush()
+            $proc.StandardInput.Close()
+            $stdout = $proc.StandardOutput.ReadToEnd()
+            $stderr = $proc.StandardError.ReadToEnd()
+            $proc.WaitForExit()
+            if ($proc.ExitCode -ne 0) {
+              Write-Output "$stdout`n$stderr".Trim()
+              exit $proc.ExitCode
             }
-            $diagMsg += "Direct /token (offline) failed: $($_.Exception.Message) | $errBody"
+            Write-Output $stdout.Trim()
+          } finally {
+            [Console]::InputEncoding = $origInputEnc
           }
-          try {
-            $tokResp2 = Invoke-WebRequest -Uri "https://ghcr.io/token?scope=repository:sohan212121/autodeploy:pull&service=ghcr.io" -Headers @{ Authorization = "Basic $b64" } -UseBasicParsing
-            $diagMsg += "Direct /token (pull scope): HTTP $($tokResp2.StatusCode)"
-          } catch {
-            $errBody2 = ""
-            if ($_.Exception.Response) {
-              $sr2 = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-              $errBody2 = $sr2.ReadToEnd()
-            }
-            $diagMsg += "Direct /token (pull scope) failed: $($_.Exception.Message) | $errBody2"
-          }
-
-          docker logout ghcr.io 2>$null | Out-Null
-          $psi = New-Object System.Diagnostics.ProcessStartInfo
-          $psi.FileName = (Get-Command docker).Source
-          $psi.Arguments = "login ghcr.io -u `"${{ github.actor }}`" --password-stdin"
-          $psi.RedirectStandardInput = $true
-          $psi.RedirectStandardOutput = $true
-          $psi.RedirectStandardError = $true
-          $psi.UseShellExecute = $false
-          $proc = [System.Diagnostics.Process]::Start($psi)
-          $tokenBytes = [System.Text.Encoding]::UTF8.GetBytes($env:GHCR_TOKEN.Trim())
-          $proc.StandardInput.BaseStream.Write($tokenBytes, 0, $tokenBytes.Length)
-          $proc.StandardInput.BaseStream.Flush()
-          $proc.StandardInput.Close()
-          $stdout = $proc.StandardOutput.ReadToEnd()
-          $stderr = $proc.StandardError.ReadToEnd()
-          $proc.WaitForExit()
-          $loginCode = $proc.ExitCode
-          $loginOut = "$stdout`n$stderr".Trim()
-          if ($loginCode -ne 0) {
-            $diagMsg += "docker login failed ($loginCode): $loginOut"
-            [System.IO.File]::WriteAllText($diagFile, ($diagMsg -join "`n"))
-            Write-Output $loginOut
-            exit $loginCode
-          }
-          if (Test-Path $diagFile) { Remove-Item $diagFile -Force }
-          Write-Output "GHCR login succeeded."
 
       # Step 3: Deploy container with verification and automatic rollback on failure
       - name: Run local deployment script
